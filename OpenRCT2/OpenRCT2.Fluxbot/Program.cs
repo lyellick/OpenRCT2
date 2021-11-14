@@ -9,7 +9,7 @@ string ip = "127.0.0.1";
 int port = 11753;
 string password = "fluxbot";
 string botname = "Fluxbot";
-string version = "0.3.4.1-0";
+string version = "0.3.5-0";
 
 using (Fluxbot fluxbot = new Fluxbot(ip, port, version, botname, password))
 {
