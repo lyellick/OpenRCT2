@@ -1,10 +1,16 @@
-﻿using OpenRCT2.Fluxbot.Enums;
+﻿using Newtonsoft.Json;
+using OpenRCT2.Fluxbot.Enums;
+using OpenRCT2.Fluxbot.Models;
+using OpenRCT2.Fluxbot.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace OpenRCT2.Fluxbot
@@ -34,64 +40,36 @@ namespace OpenRCT2.Fluxbot
 
             _socket.Connect(_ip, _port);
 
-            byte[] buffer = new byte[0xFFFF];
-            Send(_socket, buffer, 0, 13, 10000);
-            Receive(_socket, buffer, 0, 13, 10000);
-            string str = Encoding.UTF8.GetString(buffer, 0, 13);
-        }
-
-        private void Send(Socket socket, byte[] buffer, int offset, int size, int timeout)
-        {
-            int startTickCount = Environment.TickCount;
-            int sent = 0;  // how many bytes is already sent
+            // Handshake
+            byte[] buffer = new byte[0xffff];
+            byte[] buffer2 = new byte[0xffff];
+            _socket.Send(buffer, 6, SocketFlags.None);
+            int recived = 0;
+            string response = "";
             do
             {
-                if (Environment.TickCount > startTickCount + timeout)
-                    throw new Exception("Timeout.");
-                try
-                {
-                    sent += socket.Send(buffer, offset + sent, size - sent, SocketFlags.None);
-                }
-                catch (SocketException ex)
-                {
-                    if (ex.SocketErrorCode == SocketError.WouldBlock ||
-                        ex.SocketErrorCode == SocketError.IOPending ||
-                        ex.SocketErrorCode == SocketError.NoBufferSpaceAvailable)
-                    {
-                        // socket buffer is probably full, wait and try again
-                        Thread.Sleep(30);
-                    }
-                    else
-                        throw ex;  // any serious error occurr
-                }
-            } while (sent < size);
+                recived = _socket.Receive(buffer2, 6, SocketFlags.None);
+                response += Encoding.ASCII.GetString(buffer2, 0, 6);
+            } while (recived > 0);
+
+            //RSA rsa = RSA.Create();
+
+            //File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), $"{_username.ToLower()}-priv.txt"), rsa.ExportPrivateKey());
+            //File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), $"{_username.ToLower()}-pub.txt"), rsa.ExportPublicKey());
+
+            string signin = $"{_version}0{_username}0{(!string.IsNullOrEmpty(_password) ? _password : "")}0{{pub}}0";
         }
 
-        private void Receive(Socket socket, byte[] buffer, int offset, int size, int timeout)
+        public static async Task<ServerList> GetServerListAsync()
         {
-            int startTickCount = Environment.TickCount;
-            int received = 0;  // how many bytes is already received
-            do
+            using (HttpClient client = new HttpClient())
             {
-                if (Environment.TickCount > startTickCount + timeout)
-                    throw new Exception("Timeout.");
-                try
-                {
-                    received += socket.Receive(buffer, offset + received, size - received, SocketFlags.None);
-                }
-                catch (SocketException ex)
-                {
-                    if (ex.SocketErrorCode == SocketError.WouldBlock ||
-                        ex.SocketErrorCode == SocketError.IOPending ||
-                        ex.SocketErrorCode == SocketError.NoBufferSpaceAvailable)
-                    {
-                        // socket buffer is probably empty, wait and try again
-                        Thread.Sleep(30);
-                    }
-                    else
-                        throw ex;  // any serious error occurr
-                }
-            } while (received < size);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                HttpResponseMessage response = await client.GetAsync("https://servers.openrct2.io/");
+                response.EnsureSuccessStatusCode();
+                string json = await response.Content.ReadAsStringAsync();
+                return JsonConvert.DeserializeObject<ServerList>(json);
+            }
         }
 
         #region IDisposable
@@ -101,6 +79,7 @@ namespace OpenRCT2.Fluxbot
             {
                 if (disposing)
                 {
+                    _socket.Shutdown(SocketShutdown.Both);
                     _socket.Close();
                 }
 
