@@ -42,14 +42,13 @@ namespace OpenRCT2.Fluxbot
 
             // Handshake
             byte[] buffer = new byte[0xffff];
-            byte[] buffer2 = new byte[0xffff];
+            byte[] recieve = new byte[0xffff];
             _socket.Send(buffer, 6, SocketFlags.None);
             int recived = 0;
-            string response = "";
             do
             {
-                recived = _socket.Receive(buffer2, 6, SocketFlags.None);
-                response += Encoding.ASCII.GetString(buffer2, 0, 6);
+                recived = _socket.Receive(recieve, 6, SocketFlags.None);
+                string response = Encoding.ASCII.GetString(recieve, 0, 6);
             } while (recived > 0);
 
             //RSA rsa = RSA.Create();
