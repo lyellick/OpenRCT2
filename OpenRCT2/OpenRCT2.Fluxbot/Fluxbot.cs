@@ -45,18 +45,23 @@ namespace OpenRCT2.Fluxbot
             byte[] recieve = new byte[0xffff];
             _socket.Send(buffer, 6, SocketFlags.None);
             int recived = 0;
+            List<string> response = new List<string>();
             do
             {
                 recived = _socket.Receive(recieve, 6, SocketFlags.None);
-                string response = Encoding.ASCII.GetString(recieve, 0, 6);
+                response.Add(Encoding.ASCII.GetString(recieve, 0, 6));
             } while (recived > 0);
 
-            //RSA rsa = RSA.Create();
+            RSA rsa = RSA.Create();
+            string priv = rsa.ExportPrivateKey();
+            string pub = rsa.ExportPublicKey();
+            File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), $"{_username.ToLower()}-priv.txt"), priv);
+            File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), $"{_username.ToLower()}-pub.txt"), rsa.ExportPublicKey());
 
-            //File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), $"{_username.ToLower()}-priv.txt"), rsa.ExportPrivateKey());
-            //File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), $"{_username.ToLower()}-pub.txt"), rsa.ExportPublicKey());
+            string signin = $"{_version}0{_username}0{(!string.IsNullOrEmpty(_password) ? _password : "")}0{pub}0";
 
-            string signin = $"{_version}0{_username}0{(!string.IsNullOrEmpty(_password) ? _password : "")}0{{pub}}0";
+            byte[] send = Encoding.ASCII.GetBytes(signin);
+            _socket.Send(send, send.Length, SocketFlags.None);
         }
 
         public static async Task<ServerList> GetServerListAsync()
